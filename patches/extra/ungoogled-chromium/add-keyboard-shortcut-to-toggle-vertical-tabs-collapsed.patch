@@ -1,0 +1,81 @@
+--- a/chrome/app/chrome_command_ids.h
++++ b/chrome/app/chrome_command_ids.h
+@@ -87,6 +87,8 @@
+ #define IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER 34060
+ 
++#define IDC_TOGGLE_VERTICAL_TABS_COLLAPSED 34066
++
+ // Web app window commands
+ #define IDC_COPY_URL                    34061
+ #define IDC_OPEN_IN_CHROME              34062
+--- a/chrome/browser/ui/browser_commands.h
++++ b/chrome/browser/ui/browser_commands.h
+@@ -279,6 +279,7 @@
+ void ToggleVerticalTabs(BrowserWindowInterface* browser);
+ void ToggleVerticalTabsExpandOnHover(BrowserWindowInterface* browser);
++void ToggleVerticalTabsCollapsed(BrowserWindowInterface* browser);
+ bool CanCloseFind(BrowserWindowInterface* browser);
+ void CloseFind(BrowserWindowInterface* browser);
+--- a/chrome/browser/ui/browser_commands.cc
++++ b/chrome/browser/ui/browser_commands.cc
+@@ -2381,6 +2381,15 @@
+   controller->SetExpandOnHoverEnabled(!controller->IsExpandOnHoverEnabled());
+ }
+ 
++void ToggleVerticalTabsCollapsed(BrowserWindowInterface* browser) {
++  tabs::VerticalTabStripStateController* controller =
++      tabs::VerticalTabStripStateController::From(browser);
++  if (!controller || !controller->ShouldDisplayVerticalTabs()) {
++    return;
++  }
++  controller->RequestCollapse(!controller->IsCollapsed());
++}
++
+ bool CanCloseFind(BrowserWindowInterface* browser) {
+   WebContents* current_tab =
+       browser->GetTabStripModel()->GetActiveWebContents();
+--- a/chrome/browser/ui/browser_command_controller.cc
++++ b/chrome/browser/ui/browser_command_controller.cc
+@@ -700,6 +700,9 @@
+     case IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER:
+       ToggleVerticalTabsExpandOnHover(browser_);
+       break;
++    case IDC_TOGGLE_VERTICAL_TABS_COLLAPSED:
++      ToggleVerticalTabsCollapsed(browser_);
++      break;
+     // Window management commands
+     case IDC_NEW_WINDOW:
+       NewWindow(browser_);
+@@ -1709,6 +1712,8 @@
+   command_updater_->UpdateCommandEnabled(
+       IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER, true);
++  command_updater_->UpdateCommandEnabled(
++      IDC_TOGGLE_VERTICAL_TABS_COLLAPSED, true);
+ #if BUILDFLAG(IS_CHROMEOS)
+   command_updater_->UpdateCommandEnabled(IDC_TOGGLE_MULTITASK_MENU, true);
+--- a/chrome/browser/ui/accelerator_table.cc
++++ b/chrome/browser/ui/accelerator_table.cc
+@@ -66,6 +66,10 @@
+     {ui::VKEY_A, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
+      IDC_TAB_SEARCH},
++    // Toggle collapse of the vertical tab strip (Ctrl+Shift+\ on Linux/Win).
++    {ui::VKEY_OEM_5, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
++     IDC_TOGGLE_VERTICAL_TABS_COLLAPSED},
++
+     {ui::VKEY_G, ui::EF_PLATFORM_ACCELERATOR, IDC_FIND_NEXT},
+     {ui::VKEY_G, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
+      IDC_FIND_PREVIOUS},
+--- a/chrome/browser/ui/cocoa/main_menu_builder.mm
++++ b/chrome/browser/ui/cocoa/main_menu_builder.mm
+@@ -311,6 +311,11 @@
+               Item(IDS_SWITCH_TO_VERTICAL_TAB)
+                   .command_id(IDC_TOGGLE_VERTICAL_TABS)
+                   .remove_if(!tabs::IsVerticalTabsFeatureEnabled()),
++              Item(IDS_COLLAPSE_VERTICAL_TABS)
++                  .command_id(IDC_TOGGLE_VERTICAL_TABS_COLLAPSED)
++                  .key_equivalent(@"\\", NSEventModifierFlagCommand |
++                                             NSEventModifierFlagShift)
++                  .remove_if(!tabs::IsVerticalTabsFeatureEnabled()),
+               Item(IDS_CUSTOMIZE_TOUCH_BAR)
+                   .tag(IDC_CUSTOMIZE_TOUCH_BAR)
+                   .action(@selector(toggleTouchBarCustomizationPalette:))
